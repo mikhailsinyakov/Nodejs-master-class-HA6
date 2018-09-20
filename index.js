@@ -1,7 +1,16 @@
+/*
+ * This is primary file
+ * 
+ */
+
+// Dependencies
 const http = require('http');
 const url = require('url');
 const config = require('./config');
+const cluster = require('cluster');
+const os = require('os');
 
+// Create a new HTTP server
 const server = http.createServer((req, res) => {
     const urlObject = url.parse(req.url);
     const path = urlObject.pathname;
@@ -13,12 +22,21 @@ const server = http.createServer((req, res) => {
         res.writeHead(statusCode);
         res.end(body);
     });
-
-    
 });
 
-server.listen(config.port, () => console.log(`Server is listening on port ${config.port} now`));
+// If this is a master cluster, for each cpu on the system, spawn a new worker process
+if (cluster.isMaster) {
+    const countCPU = os.cpus().length;
+    for (let i = 0; i < countCPU; i++) {
+        cluster.fork();
+    }
+}
+// If this is a worker process, starts the server listening for connections
+else {
+    server.listen(config.port, () => console.log(`Server is listening on port ${config.port} now`));
+}
 
+// Handle incoming requests
 const handler = {
     hello: callback => {
         const welcomeObj = {
@@ -34,6 +52,8 @@ const handler = {
     }
 };
 
+
+// Redirect incoming requests to handlers
 const router = {
     hello: handler.hello
 };
